@@ -1,0 +1,195 @@
+module datapath(input clk, reset,
+                output [31:0] PCF,
+                input  [31:0] InstrF,
+                output MemWriteM,
+                output [31:0] ALUResultM, WriteDataM,
+                input  [31:0] ReadDataM,
+                output [6:0]  opD,
+                output [2:0]  funct3D,
+                output funct7b5D,
+                input  [1:0]  ResultSrcD,
+                input  MemWriteD,
+                input  ALUSrcD,
+                input  RegWriteD, JumpD, JalrD, BranchD,
+                input  [2:0]  ImmSrcD,
+                input  [3:0]  ALUControlD);
+
+    localparam WIDTH = 32;
+
+    // Fetch
+    wire [31:0] PCNextF, PCPlus4F;
+    wire [1:0]  PCSrcE;      
+    wire [31:0] PCTargetE;   
+    wire [31:0] ALUResultE; 
+
+    mux3 #(WIDTH) pcmux(
+        .d0(PCPlus4F),
+        .d1(PCTargetE),
+        .d2(ALUResultE),
+        .s(PCSrcE),
+        .y(PCNextF)
+    );
+
+    flopr #(WIDTH) pcreg(
+        .clk(clk),
+        .reset(reset),
+        .d(PCNextF),
+        .q(PCF)
+    );
+
+    adder pcadd4(
+        .a(PCF),
+        .b(32'd4),
+        .y(PCPlus4F)
+    );
+
+
+    // Registros Fetch/Decode 
+    wire [31:0] PCD, PCPlus4D, InstrD;
+
+    flopr #(32) r_ifid_pc(clk, reset, PCF, PCD);
+    flopr #(32) r_ifid_pc4(clk, reset, PCPlus4F, PCPlus4D);
+    flopr #(32) r_ifid_instr(clk, reset, InstrF, InstrD);
+
+
+    // Instruction decode
+    wire [31:0] SrcAD, WriteDataD, ImmExtD;
+    wire [4:0]  RdW;         
+    wire [31:0] ResultW;     
+    wire RegWriteW;  
+
+    // Inputs para el Controller
+    assign opD       = InstrD[6:0];
+    assign funct3D   = InstrD[14:12];
+    assign funct7b5D = InstrD[30];
+
+    regfile rf(
+        .clk(clk),
+        .we3(RegWriteW),
+        .a1(InstrD[19:15]),
+        .a2(InstrD[24:20]),
+        .a3(RdW),
+        .wd3(ResultW),
+        .rd1(SrcAD),
+        .rd2(WriteDataD)
+    );
+
+    extend ext(
+        .instr(InstrD[31:7]),
+        .immsrc(ImmSrcD),
+        .immext(ImmExtD)
+    );
+
+
+    // Registros Decode/Execute
+    wire [31:0] SrcAE, WriteDataE, PCE, ImmExtE, PCPlus4E;
+    wire [4:0]  RdE;
+    wire [2:0]  funct3E;
+    wire RegWriteE;
+    wire [1:0]  ResultSrcE;
+    wire MemWriteE;
+    wire ALUSrcE;
+    wire JumpE, JalrE, BranchE;
+    wire [3:0]  ALUControlE;
+
+    flopr #(32) r_idex_srca(clk, reset, SrcAD, SrcAE);
+    flopr #(32) r_idex_wdata(clk, reset, WriteDataD, WriteDataE);
+    flopr #(32) r_idex_pc(clk, reset, PCD, PCE);
+    flopr #(32) r_idex_imm(clk, reset, ImmExtD, ImmExtE);
+    flopr #(32) r_idex_pc4(clk, reset, PCPlus4D, PCPlus4E);
+    flopr #(5)  r_idex_rd(clk, reset, InstrD[11:7], RdE);
+    flopr #(3)  r_idex_f3(clk, reset, funct3D, funct3E);
+
+    flopr #(1)  r_idex_rwr(clk, reset, RegWriteD, RegWriteE);
+    flopr #(2)  r_idex_rsrc(clk, reset, ResultSrcD, ResultSrcE);
+    flopr #(1)  r_idex_mwr(clk, reset, MemWriteD, MemWriteE);
+    flopr #(1)  r_idex_asrc(clk, reset, ALUSrcD, ALUSrcE);
+    flopr #(1)  r_idex_jmp(clk, reset, JumpD, JumpE);
+    flopr #(1)  r_idex_jalr(clk, reset, JalrD, JalrE);
+    flopr #(1)  r_idex_br(clk, reset, BranchD, BranchE);
+    flopr #(4)  r_idex_aluc(clk, reset, ALUControlD, ALUControlE);
+
+
+    // Execute
+    wire [31:0] SrcBE;
+    wire        zeroE, lessE, take_branchE;
+
+    adder pctarget(
+        .a(PCE),
+        .b(ImmExtE),
+        .y(PCTargetE)
+    );
+
+    
+    mux2 #(WIDTH) srcbmux(
+        .d0(WriteDataE),
+        .d1(ImmExtE),
+        .s(ALUSrcE),
+        .y(SrcBE)
+    );
+
+    alu alu(
+        .a(SrcAE),
+        .b(SrcBE),
+        .alucontrol(ALUControlE),
+        .result(ALUResultE),
+        .zero(zeroE),
+        .less(lessE)
+    );
+
+    branch_unit bu(
+        .branch_type(funct3E),
+        .zero(zeroE),
+        .less(lessE),
+        .take_branch(take_branchE)
+    );
+
+    assign PCSrcE[1] = JalrE;
+    assign PCSrcE[0] = JumpE | (BranchE & take_branchE);
+
+
+    // Registros Execute/Memory
+    wire [31:0] PCPlus4M;
+    wire [4:0]  RdM;
+    wire RegWriteM;
+    wire [1:0]  ResultSrcM;
+
+    flopr #(32) r_exmem_alures(clk, reset, ALUResultE, ALUResultM);
+    flopr #(32) r_exmem_wdata(clk, reset, WriteDataE, WriteDataM);
+    flopr #(32) r_exmem_pc4(clk, reset, PCPlus4E, PCPlus4M);
+    flopr #(5)  r_exmem_rd(clk, reset, RdE, RdM);
+
+    flopr #(1)  r_exmem_rwr(clk, reset, RegWriteE, RegWriteM);
+    flopr #(2)  r_exmem_rsrc(clk, reset, ResultSrcE, ResultSrcM);
+    flopr #(1)  r_exmem_mwr(clk, reset, MemWriteE, MemWriteM);
+
+
+    // Memory
+    
+    // MemWriteM, ALUResultM y WriteDataM son outputs, se conectan a Data Memory
+    // El puerto ReadDataM ingresa como dato fresco desde el exterior (output de Data Memory)
+
+    // Registros Memory/WriteBack
+    wire [31:0] ALUResultW, ReadDataW, PCPlus4W;
+    wire [1:0]  ResultSrcW;
+
+    flopr #(32) r_memwb_alures(clk, reset, ALUResultM, ALUResultW);
+    flopr #(32) r_memwb_rdata(clk, reset, ReadDataM, ReadDataW);
+    flopr #(32) r_memwb_pc4(clk, reset, PCPlus4M, PCPlus4W);
+    flopr #(5)  r_memwb_rd(clk, reset, RdM, RdW);
+
+    flopr #(1)  r_memwb_rwr(clk, reset, RegWriteM, RegWriteW);
+    flopr #(2)  r_memwb_rsrc(clk, reset, ResultSrcM, ResultSrcW);
+
+
+    // WriteBack
+    
+    mux3 #(WIDTH) resultmux(
+        .d0(ALUResultW),
+        .d1(ReadDataW),
+        .d2(PCPlus4W),
+        .s(ResultSrcW),
+        .y(ResultW)
+    );
+
+endmodule

@@ -1,0 +1,23 @@
+# P2: ISA Test Forwarding
+# Cadena de dependencias RAW consecutivas (sin NOPs separadores).
+# Sin forwarding: x3, x4, x5, x6 tendran valores incorrectos (basura del pipeline).
+# Con forwarding: x1=10, x2=5, x3=15, x4=25, x5=20, x6=23
+#
+# Hazards presentes:
+#   add  x3: MEM-EX sobre x1 (2 instrucciones antes), EX-EX sobre x2 (1 instruccion antes)
+#   add  x4: EX-EX sobre x3 (1 atras), MEM-EX sobre x1 (3 atras -> WB-ID, tambien peligroso)
+#   sub  x5: EX-EX sobre x4 (1 atras), MEM-EX sobre x2 (3 atras)
+#   addi x6: EX-EX sobre x5 (1 atras)
+
+addi x1, x0, 10          # x1 = 10
+addi x2, x0, 5           # x2 = 5
+add  x3, x1, x2          # x3 = 15  (RAW)
+add  x4, x3, x1          # x4 = 25  (RAW)
+sub  x5, x4, x2          # x5 = 20  (RAW)
+addi x6, x5, 3           # x6 = 23  (RAW)
+
+loop:
+jal  x0, loop            # loop infinito
+
+addi x0, x0, 0           # phantom NOP
+addi x0, x0, 0           # phantom NOP

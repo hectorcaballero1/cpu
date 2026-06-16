@@ -1,0 +1,31 @@
+# P3: ISA Test Stalling (Load-Use Hazard)
+# El hazard de load-use ocurre cuando lw es seguido INMEDIATAMENTE
+# por una instruccion que usa el registro cargado.
+# El dato no sale de la memoria hasta el final del stage MEM del lw,
+# pero la instruccion siguiente ya necesita el dato al inicio de su stage EX.
+# Esto requiere un stall de 1 ciclo que el forwarding solo no puede resolver.
+#
+# Sin stall: x3 tendra el valor ANTERIOR de x2 (0), no 42+42=84.
+# Con stall:  x3 = 84
+
+# Setup: escribir 42 en mem[0] sin dependencias
+addi x1, x0, 42          # x1 = 42
+addi x0, x0, 0           # NOP
+addi x0, x0, 0           # NOP
+addi x0, x0, 0           # NOP
+sw   x1, 0(x0)           # mem[0] = 42
+
+# Separador para que el sw termine antes del lw
+addi x0, x0, 0           # NOP
+addi x0, x0, 0           # NOP
+addi x0, x0, 0           # NOP
+
+# Load-Use Hazard: lw seguido inmediatamente de add que usa x2
+lw   x2, 0(x0)           # x2 = 42
+add  x3, x2, x1          # RAW load-use: x3 deberia ser 84
+
+loop:
+jal  x0, loop            # loop infinito
+
+addi x0, x0, 0           # phantom NOP
+addi x0, x0, 0           # phantom NOP
