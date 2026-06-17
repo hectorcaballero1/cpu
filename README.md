@@ -1,6 +1,6 @@
-# RISC-V Pipelined Processor
+# RISC-V Pipelined CPU
 
-Proyecto de Arquitectura de Computadoras. Para testear, abrir el proyecto en Vivado y correr la simulación con el testbench.
+Procesador RISC-V de 32 bits con pipeline de 5 etapas implementado en Verilog.
 
 ## Instrucciones soportadas
 
@@ -30,3 +30,12 @@ Proyecto de Arquitectura de Computadoras. Para testear, abrir el proyecto en Viv
 | `bge rs1, rs2, offset` | Branch if greater than or equal |
 | `jal rd, offset` | Jump and link |
 | `jalr rd, rs1, imm` | Jump and link register |
+
+## Simulación
+
+Abrir el proyecto en Vivado y correr la simulación con `sim/tb_john.v`. Los programas de prueba están en `programs/`:
+
+- `p1_no_dependencies` sin dependencias de datos
+- `p2_forwarding` prueba forwarding
+- `p3_stalling` prueba stall por load-use
+- `p4_flushing` prueba flush por branches/jumps
