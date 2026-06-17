@@ -23,7 +23,7 @@ module datapath(input clk, reset,
     wire [31:0] ALUResultE;
 
     // Señales de hazard (stall / flush)
-    wire StallF, StallD, FlushE;
+    wire StallF, StallD, FlushD, FlushE;
 
     mux3 #(WIDTH) pcmux(
         .d0(PCPlus4F),
@@ -51,9 +51,9 @@ module datapath(input clk, reset,
     // Registros Fetch/Decode 
     wire [31:0] PCD, PCPlus4D, InstrD;
 
-    flopre #(32) r_ifid_pc(clk, reset, ~StallD, PCF, PCD);
-    flopre #(32) r_ifid_pc4(clk, reset, ~StallD, PCPlus4F, PCPlus4D);
-    flopre #(32) r_ifid_instr(clk, reset, ~StallD, InstrF, InstrD);
+    floprce #(32) r_ifid_pc(clk, reset, FlushD, ~StallD, PCF, PCD);
+    floprce #(32) r_ifid_pc4(clk, reset, FlushD, ~StallD, PCPlus4F, PCPlus4D);
+    floprce #(32) r_ifid_instr(clk, reset, FlushD, ~StallD, InstrF, InstrD);
 
 
     // Instruction decode
@@ -136,10 +136,12 @@ module datapath(input clk, reset,
         .RegWriteM(RegWriteM),
         .RegWriteW(RegWriteW),
         .ResultSrcE0(ResultSrcE[0]),
+        .PCSrcE(PCSrcE),
         .ForwardAE(ForwardAE),
         .ForwardBE(ForwardBE),
         .StallF(StallF),
         .StallD(StallD),
+        .FlushD(FlushD),
         .FlushE(FlushE)
     );
 

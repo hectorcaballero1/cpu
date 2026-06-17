@@ -3,8 +3,9 @@ module hazard_unit(input  [4:0] Rs1D, Rs2D,
                    input  [4:0] RdE, RdM, RdW,
                    input        RegWriteM, RegWriteW,
                    input        ResultSrcE0,
+                   input  [1:0] PCSrcE,
                    output reg [1:0] ForwardAE, ForwardBE,
-                   output       StallF, StallD, FlushE);
+                   output       StallF, StallD, FlushD, FlushE);
 
     // 2'b10: forward from MEM (ALUResultM)
     // 2'b01: forward from WB  (ResultW)
@@ -26,8 +27,10 @@ module hazard_unit(input  [4:0] Rs1D, Rs2D,
     wire lwStall;
     assign lwStall = ResultSrcE0 & (RdE != 5'b0) & ((Rs1D == RdE) | (Rs2D == RdE));
 
+    // Control hazard: branch/jump tomado (PCSrcE != 00), flushea las 2 instrucciones mal predichas que ya entraron a IF e ID.
     assign StallF = lwStall;
     assign StallD = lwStall;
-    assign FlushE = lwStall;
+    assign FlushD = PCSrcE[0] | PCSrcE[1];
+    assign FlushE = lwStall | PCSrcE[0] | PCSrcE[1];
 
 endmodule
