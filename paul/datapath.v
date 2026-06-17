@@ -82,8 +82,8 @@ module datapath(input clk, reset,
 
 
     // Registros Decode/Execute
-    wire [31:0] SrcAE, WriteDataE, PCE, ImmExtE, PCPlus4E;
-    wire [4:0]  RdE;
+    wire [31:0] RD1E, RD2E, PCE, ImmExtE, PCPlus4E;
+    wire [4:0]  RdE, Rs1E, Rs2E;
     wire [2:0]  funct3E;
     wire RegWriteE;
     wire [1:0]  ResultSrcE;
@@ -92,12 +92,14 @@ module datapath(input clk, reset,
     wire JumpE, JalrE, BranchE;
     wire [3:0]  ALUControlE;
 
-    flopr #(32) r_idex_srca(clk, reset, SrcAD, SrcAE);
-    flopr #(32) r_idex_wdata(clk, reset, WriteDataD, WriteDataE);
+    flopr #(32) r_idex_srca(clk, reset, SrcAD, RD1E);
+    flopr #(32) r_idex_wdata(clk, reset, WriteDataD, RD2E);
     flopr #(32) r_idex_pc(clk, reset, PCD, PCE);
     flopr #(32) r_idex_imm(clk, reset, ImmExtD, ImmExtE);
     flopr #(32) r_idex_pc4(clk, reset, PCPlus4D, PCPlus4E);
     flopr #(5)  r_idex_rd(clk, reset, InstrD[11:7], RdE);
+    flopr #(5)  r_idex_rs1(clk, reset, InstrD[19:15], Rs1E);
+    flopr #(5)  r_idex_rs2(clk, reset, InstrD[24:20], Rs2E);
     flopr #(3)  r_idex_f3(clk, reset, funct3D, funct3E);
 
     flopr #(1)  r_idex_rwr(clk, reset, RegWriteD, RegWriteE);
@@ -111,8 +113,36 @@ module datapath(input clk, reset,
 
 
     // Execute
-    wire [31:0] SrcBE;
+    wire [31:0] SrcAE, WriteDataE, SrcBE;
     wire        zeroE, lessE, take_branchE;
+    wire [1:0]  ForwardAE, ForwardBE;
+
+    hazard_unit hu(
+        .Rs1E(Rs1E),
+        .Rs2E(Rs2E),
+        .RdM(RdM),
+        .RdW(RdW),
+        .RegWriteM(RegWriteM),
+        .RegWriteW(RegWriteW),
+        .ForwardAE(ForwardAE),
+        .ForwardBE(ForwardBE)
+    );
+
+    mux3 #(WIDTH) fwdamux(
+        .d0(RD1E),
+        .d1(ResultW),
+        .d2(ALUResultM),
+        .s(ForwardAE),
+        .y(SrcAE)
+    );
+
+    mux3 #(WIDTH) fwdbmux(
+        .d0(RD2E),
+        .d1(ResultW),
+        .d2(ALUResultM),
+        .s(ForwardBE),
+        .y(WriteDataE)
+    );
 
     adder pctarget(
         .a(PCE),
@@ -120,7 +150,6 @@ module datapath(input clk, reset,
         .y(PCTargetE)
     );
 
-    
     mux2 #(WIDTH) srcbmux(
         .d0(WriteDataE),
         .d1(ImmExtE),
