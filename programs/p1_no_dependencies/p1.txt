@@ -1,40 +1,48 @@
 # P1: ISA sin dependencias
-# Todas las instrucciones del Cuadro 1 separadas por NOPs para evitar Data Hazards.
-# Resultado esperado: x1=0x4000, x2=5, x3=5, x4=10, x5=0x4005, x6=5, x7=20, x8=loop
+# Resultado esperado: x1=0x4000, x2=5, x3=5, x4=10, x5=0x4005, x6=5, x7=20, x10=20, x8=loop
 # Si el branch falla: x9=99
 
-# --- BLOQUE 1: Cargas Iniciales ---
-lui  x1, 4              # x1 = 0x00004000  (encoded: 0x000040B7)
-addi x2, x0, 5          # x2 = 5
-addi x3, x0, 5          # x3 = 5
-addi x4, x0, 10         # x4 = 10
+# Carga de datos
+lui  x1, 4
+addi x2, x0, 5
+addi x3, x0, 5
+addi x4, x0, 10
 
-# --- RELLENO (3 NOPs) ---
-addi x0, x0, 0
-addi x0, x0, 0
-addi x0, x0, 0
-
-# --- BLOQUE 2: Branch condicional (NO tomado, 5==5 falla bne) ---
-bne  x2, x3, error       # NOT TAKEN: x2==x3, el branch NO salta
-
-# --- BLOQUE 3: Operaciones ALU ---
-add  x5, x1, x2          # x5 = 0x00004005
-sub  x6, x4, x2          # x6 = 5
-slli x7, x2, 2           # x7 = 20
-
-# --- RELLENO (3 NOPs) ---
+# nop
 addi x0, x0, 0
 addi x0, x0, 0
 addi x0, x0, 0
 
-# --- BLOQUE 4: Salto incondicional (loop infinito) ---
+# Branch (shouldn't be taken)
+bne  x2, x3, error
+
+# Operaciones ALU
+add  x5, x1, x2
+sub  x6, x4, x2
+slli x7, x2, 2
+
+# nop
+addi x0, x0, 0
+addi x0, x0, 0
+addi x0, x0, 0
+
+# Accesos a Memoria
+sw   x7, 0(x0)
+lw   x10, 0(x0)
+
+# nop
+addi x0, x0, 0
+addi x0, x0, 0
+addi x0, x0, 0
+
+# Loop final (j .)
 end:
-jal  x8, end             # loop: salta a si mismo
+jal  x8, end
 
-# Instrucciones fantasma (entran al pipeline mientras PC se actualiza, son NOPs)
+# nop
 addi x0, x0, 0
 addi x0, x0, 0
 
-# --- ETIQUETA DE ERROR ---
+# Error
 error:
-addi x9, x0, 99          # x9=99 indica que el branch fallo incorrectamente
+addi x9, x0, 99

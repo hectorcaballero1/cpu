@@ -1,30 +1,25 @@
 # P4: ISA Test Flushing (Control Hazard - Branch Tomado)
-# Cuando un branch se toma, ya entraron al pipeline las 2 instrucciones
-# en PC+4 y PC+8 (etapas IF e ID). Sin flushing, esas instrucciones se
-# ejecutan y corrompen el estado del procesador.
-#
-# Sin flushing: x10=255 y x11=255 (instrucciones fantasma ejecutadas)
-# Con flushing: x10=0, x11=0, x3=1 (solo se ejecuta el destino correcto)
+# Con flushing: x10=0, x11=0, x3=1
 
-# Preparacion (con NOPs para evitar data hazards)
-addi x1, x0, 5           # x1 = 5
-addi x2, x0, 5           # x2 = 5
-addi x0, x0, 0           # NOP
-addi x0, x0, 0           # NOP
-addi x0, x0, 0           # NOP
+# Setup
+addi x1, x0, 5
+addi x2, x0, 5
+addi x0, x0, 0
+addi x0, x0, 0
+addi x0, x0, 0
 
-# Branch TOMADO: x1 == x2 -> salta a target (offset = +12)
-beq  x1, x2, target      # TOMADO
+# Branch (should be taken)
+beq  x1, x2, target
 
-# Estas 2 instrucciones deben ser flusheadas:
-addi x10, x0, 255        # NO debe ejecutarse
-addi x11, x0, 255        # NO debe ejecutarse
+# Instrucciones a flushear
+addi x10, x0, 255
+addi x11, x0, 255
 
 target:
-addi x3, x0, 1           # x3 = 1 (confirma llegada al destino correcto)
+addi x3, x0, 1
 
 loop:
-jal  x0, loop            # loop infinito
+jal  x0, loop
 
-addi x0, x0, 0           # phantom NOP
-addi x0, x0, 0           # phantom NOP
+addi x0, x0, 0
+addi x0, x0, 0
