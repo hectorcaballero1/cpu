@@ -18,9 +18,12 @@ module datapath(input clk, reset,
 
     // Fetch
     wire [31:0] PCNextF, PCPlus4F;
-    wire [1:0]  PCSrcE;      
-    wire [31:0] PCTargetE;   
-    wire [31:0] ALUResultE; 
+    wire [1:0]  PCSrcE;
+    wire [31:0] PCTargetE;
+    wire [31:0] ALUResultE;
+
+    // Señales de hazard (stall / flush)
+    wire StallF, StallD, FlushE;
 
     mux3 #(WIDTH) pcmux(
         .d0(PCPlus4F),
@@ -30,9 +33,10 @@ module datapath(input clk, reset,
         .y(PCNextF)
     );
 
-    flopr #(WIDTH) pcreg(
+    flopre #(WIDTH) pcreg(
         .clk(clk),
         .reset(reset),
+        .en(~StallF),
         .d(PCNextF),
         .q(PCF)
     );
@@ -47,27 +51,31 @@ module datapath(input clk, reset,
     // Registros Fetch/Decode 
     wire [31:0] PCD, PCPlus4D, InstrD;
 
-    flopr #(32) r_ifid_pc(clk, reset, PCF, PCD);
-    flopr #(32) r_ifid_pc4(clk, reset, PCPlus4F, PCPlus4D);
-    flopr #(32) r_ifid_instr(clk, reset, InstrF, InstrD);
+    flopre #(32) r_ifid_pc(clk, reset, ~StallD, PCF, PCD);
+    flopre #(32) r_ifid_pc4(clk, reset, ~StallD, PCPlus4F, PCPlus4D);
+    flopre #(32) r_ifid_instr(clk, reset, ~StallD, InstrF, InstrD);
 
 
     // Instruction decode
     wire [31:0] SrcAD, WriteDataD, ImmExtD;
-    wire [4:0]  RdW;         
-    wire [31:0] ResultW;     
-    wire RegWriteW;  
+    wire [4:0]  RdW;
+    wire [31:0] ResultW;
+    wire RegWriteW;
+    wire [4:0]  Rs1D, Rs2D;
 
     // Inputs para el Controller
     assign opD       = InstrD[6:0];
     assign funct3D   = InstrD[14:12];
     assign funct7b5D = InstrD[30];
 
+    assign Rs1D = InstrD[19:15];
+    assign Rs2D = InstrD[24:20];
+
     regfile rf(
         .clk(clk),
         .we3(RegWriteW),
-        .a1(InstrD[19:15]),
-        .a2(InstrD[24:20]),
+        .a1(Rs1D),
+        .a2(Rs2D),
         .a3(RdW),
         .wd3(ResultW),
         .rd1(SrcAD),
@@ -92,24 +100,24 @@ module datapath(input clk, reset,
     wire JumpE, JalrE, BranchE;
     wire [3:0]  ALUControlE;
 
-    flopr #(32) r_idex_srca(clk, reset, SrcAD, RD1E);
-    flopr #(32) r_idex_wdata(clk, reset, WriteDataD, RD2E);
-    flopr #(32) r_idex_pc(clk, reset, PCD, PCE);
-    flopr #(32) r_idex_imm(clk, reset, ImmExtD, ImmExtE);
-    flopr #(32) r_idex_pc4(clk, reset, PCPlus4D, PCPlus4E);
-    flopr #(5)  r_idex_rd(clk, reset, InstrD[11:7], RdE);
-    flopr #(5)  r_idex_rs1(clk, reset, InstrD[19:15], Rs1E);
-    flopr #(5)  r_idex_rs2(clk, reset, InstrD[24:20], Rs2E);
-    flopr #(3)  r_idex_f3(clk, reset, funct3D, funct3E);
+    floprc #(32) r_idex_srca(clk, reset, FlushE, SrcAD, RD1E);
+    floprc #(32) r_idex_wdata(clk, reset, FlushE, WriteDataD, RD2E);
+    floprc #(32) r_idex_pc(clk, reset, FlushE, PCD, PCE);
+    floprc #(32) r_idex_imm(clk, reset, FlushE, ImmExtD, ImmExtE);
+    floprc #(32) r_idex_pc4(clk, reset, FlushE, PCPlus4D, PCPlus4E);
+    floprc #(5)  r_idex_rd(clk, reset, FlushE, InstrD[11:7], RdE);
+    floprc #(5)  r_idex_rs1(clk, reset, FlushE, Rs1D, Rs1E);
+    floprc #(5)  r_idex_rs2(clk, reset, FlushE, Rs2D, Rs2E);
+    floprc #(3)  r_idex_f3(clk, reset, FlushE, funct3D, funct3E);
 
-    flopr #(1)  r_idex_rwr(clk, reset, RegWriteD, RegWriteE);
-    flopr #(2)  r_idex_rsrc(clk, reset, ResultSrcD, ResultSrcE);
-    flopr #(1)  r_idex_mwr(clk, reset, MemWriteD, MemWriteE);
-    flopr #(1)  r_idex_asrc(clk, reset, ALUSrcD, ALUSrcE);
-    flopr #(1)  r_idex_jmp(clk, reset, JumpD, JumpE);
-    flopr #(1)  r_idex_jalr(clk, reset, JalrD, JalrE);
-    flopr #(1)  r_idex_br(clk, reset, BranchD, BranchE);
-    flopr #(4)  r_idex_aluc(clk, reset, ALUControlD, ALUControlE);
+    floprc #(1)  r_idex_rwr(clk, reset, FlushE, RegWriteD, RegWriteE);
+    floprc #(2)  r_idex_rsrc(clk, reset, FlushE, ResultSrcD, ResultSrcE);
+    floprc #(1)  r_idex_mwr(clk, reset, FlushE, MemWriteD, MemWriteE);
+    floprc #(1)  r_idex_asrc(clk, reset, FlushE, ALUSrcD, ALUSrcE);
+    floprc #(1)  r_idex_jmp(clk, reset, FlushE, JumpD, JumpE);
+    floprc #(1)  r_idex_jalr(clk, reset, FlushE, JalrD, JalrE);
+    floprc #(1)  r_idex_br(clk, reset, FlushE, BranchD, BranchE);
+    floprc #(4)  r_idex_aluc(clk, reset, FlushE, ALUControlD, ALUControlE);
 
 
     // Execute
@@ -118,14 +126,21 @@ module datapath(input clk, reset,
     wire [1:0]  ForwardAE, ForwardBE;
 
     hazard_unit hu(
+        .Rs1D(Rs1D),
+        .Rs2D(Rs2D),
         .Rs1E(Rs1E),
         .Rs2E(Rs2E),
+        .RdE(RdE),
         .RdM(RdM),
         .RdW(RdW),
         .RegWriteM(RegWriteM),
         .RegWriteW(RegWriteW),
+        .ResultSrcE0(ResultSrcE[0]),
         .ForwardAE(ForwardAE),
-        .ForwardBE(ForwardBE)
+        .ForwardBE(ForwardBE),
+        .StallF(StallF),
+        .StallD(StallD),
+        .FlushE(FlushE)
     );
 
     mux3 #(WIDTH) fwdamux(
