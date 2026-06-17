@@ -6,7 +6,6 @@ addi x1, x0, 5
 addi x2, x0, 5
 addi x0, x0, 0
 addi x0, x0, 0
-addi x0, x0, 0
 
 # Branch (should be taken)
 beq  x1, x2, target
