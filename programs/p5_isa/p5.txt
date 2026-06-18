@@ -1,0 +1,47 @@
+# Test ISA (con hazard unit, sin nops)
+# Esperado: x2=0xFFFFF000, x3=12, x4=2, x5=14, x6=56, x7=14, x8=0xFFFFFFFF, x9=14, x10=28, x11=56, x12=7
+# Si un branch mal: x29=99
+# Si un flush falla: x28=99
+
+# Setup base
+lui   x2, 0xFFFFF       # x2 = 0xFFFFF000
+addi  x3, x0, 12        # x3 = 12
+
+# Cadena dependiente (forwarding)
+xori  x4, x3, 14        # x4 = 2
+add   x5, x4, x3        # x5 = 14
+slli  x6, x5, 2         # x6 = 56
+srl   x7, x6, x4        # x7 = 14
+srai  x8, x2, 31        # x8 = 0xFFFFFFFF
+
+# Memoria (stalling)
+sw    x5, 0(x0)         # mem[0] = 14
+lw    x9, 0(x0)         # x9 = 14
+add   x10, x9, x9       # x10 = 28
+
+# Branch not taken
+beq   x3, x4, error
+
+# Branch taken
+bne   x3, x4, cont1
+addi  x28, x0, 99       # flush
+
+cont1:
+# Branch taken
+bge   x3, x4, cont2
+addi  x28, x0, 99       # flush
+
+cont2:
+jal   x1, doble         # call doble
+addi  x12, x0, 7
+jal   x0, fin
+
+doble:
+add   x11, x10, x10     # x11 = 56
+jalr  x0, x1, 0         # ret
+
+fin:
+jal   x0, fin
+
+error:
+addi  x29, x0, 99
