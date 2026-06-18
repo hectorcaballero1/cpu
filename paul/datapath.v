@@ -93,6 +93,7 @@ module datapath(input clk, reset,
     wire [31:0] RD1E, RD2E, PCE, ImmExtE, PCPlus4E;
     wire [4:0]  RdE, Rs1E, Rs2E;
     wire [2:0]  funct3E;
+    wire [31:0] InstrE;
     wire RegWriteE;
     wire [1:0]  ResultSrcE;
     wire MemWriteE;
@@ -109,6 +110,7 @@ module datapath(input clk, reset,
     floprc #(5)  r_idex_rs1(clk, reset, FlushE, Rs1D, Rs1E);
     floprc #(5)  r_idex_rs2(clk, reset, FlushE, Rs2D, Rs2E);
     floprc #(3)  r_idex_f3(clk, reset, FlushE, funct3D, funct3E);
+    floprc #(32) r_idex_instr(clk, reset, FlushE, InstrD, InstrE);   // solo para waveform
 
     floprc #(1)  r_idex_rwr(clk, reset, FlushE, RegWriteD, RegWriteE);
     floprc #(2)  r_idex_rsrc(clk, reset, FlushE, ResultSrcD, ResultSrcE);
@@ -199,6 +201,7 @@ module datapath(input clk, reset,
     wire [4:0]  RdM;
     wire RegWriteM;
     wire [1:0]  ResultSrcM;
+    wire [31:0] InstrM;
 
     flopr #(32) r_exmem_alures(clk, reset, ALUResultE, ALUResultM);
     flopr #(32) r_exmem_wdata(clk, reset, WriteDataE, WriteDataM);
@@ -208,6 +211,7 @@ module datapath(input clk, reset,
     flopr #(1)  r_exmem_rwr(clk, reset, RegWriteE, RegWriteM);
     flopr #(2)  r_exmem_rsrc(clk, reset, ResultSrcE, ResultSrcM);
     flopr #(1)  r_exmem_mwr(clk, reset, MemWriteE, MemWriteM);
+    flopr #(32) r_exmem_instr(clk, reset, InstrE, InstrM);   // solo para waveform
 
 
     // Memory
@@ -218,6 +222,7 @@ module datapath(input clk, reset,
     // Registros Memory/WriteBack
     wire [31:0] ALUResultW, ReadDataW, PCPlus4W;
     wire [1:0]  ResultSrcW;
+    wire [31:0] InstrW;
 
     flopr #(32) r_memwb_alures(clk, reset, ALUResultM, ALUResultW);
     flopr #(32) r_memwb_rdata(clk, reset, ReadDataM, ReadDataW);
@@ -226,6 +231,7 @@ module datapath(input clk, reset,
 
     flopr #(1)  r_memwb_rwr(clk, reset, RegWriteM, RegWriteW);
     flopr #(2)  r_memwb_rsrc(clk, reset, ResultSrcM, ResultSrcW);
+    flopr #(32) r_memwb_instr(clk, reset, InstrM, InstrW);   // solo para waveform
 
 
     // WriteBack
