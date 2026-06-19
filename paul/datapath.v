@@ -192,8 +192,13 @@ module datapath(input clk, reset,
         .take_branch(take_branchE)
     );
 
-    assign PCSrcE[1] = JalrE;
-    assign PCSrcE[0] = JumpE | (BranchE & take_branchE);
+    pcsrc_logic pcsrc(
+        .JumpE(JumpE),
+        .JalrE(JalrE),
+        .BranchE(BranchE),
+        .take_branchE(take_branchE),
+        .PCSrcE(PCSrcE)
+    );
 
 
     // Registros Execute/Memory
@@ -202,6 +207,7 @@ module datapath(input clk, reset,
     wire RegWriteM;
     wire [1:0]  ResultSrcM;
     wire [31:0] InstrM;
+    wire [31:0] PCM;
 
     flopr #(32) r_exmem_alures(clk, reset, ALUResultE, ALUResultM);
     flopr #(32) r_exmem_wdata(clk, reset, WriteDataE, WriteDataM);
@@ -212,6 +218,7 @@ module datapath(input clk, reset,
     flopr #(2)  r_exmem_rsrc(clk, reset, ResultSrcE, ResultSrcM);
     flopr #(1)  r_exmem_mwr(clk, reset, MemWriteE, MemWriteM);
     flopr #(32) r_exmem_instr(clk, reset, InstrE, InstrM);   // solo para waveform
+    flopr #(32) r_exmem_pc(clk, reset, PCE, PCM);           // solo para waveform
 
 
     // Memory
@@ -223,6 +230,7 @@ module datapath(input clk, reset,
     wire [31:0] ALUResultW, ReadDataW, PCPlus4W;
     wire [1:0]  ResultSrcW;
     wire [31:0] InstrW;
+    wire [31:0] PCW;
 
     flopr #(32) r_memwb_alures(clk, reset, ALUResultM, ALUResultW);
     flopr #(32) r_memwb_rdata(clk, reset, ReadDataM, ReadDataW);
@@ -232,6 +240,7 @@ module datapath(input clk, reset,
     flopr #(1)  r_memwb_rwr(clk, reset, RegWriteM, RegWriteW);
     flopr #(2)  r_memwb_rsrc(clk, reset, ResultSrcM, ResultSrcW);
     flopr #(32) r_memwb_instr(clk, reset, InstrM, InstrW);   // solo para waveform
+    flopr #(32) r_memwb_pc(clk, reset, PCM, PCW);           // solo para waveform
 
 
     // WriteBack
