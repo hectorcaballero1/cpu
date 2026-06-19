@@ -2,6 +2,13 @@
 
 Procesador RISC-V de 32 bits con pipeline de 5 etapas implementado en Verilog.
 
+## Implementaciones
+
+| Carpeta | Descripción |
+|---|---|
+| `john/` | Pipelined base (sin hazard unit) |
+| `paul/` | Pipelined con hazard unit (forwarding, load-use stall, branch flush) |
+
 ## Instrucciones soportadas
 
 | Instrucción | Descripción |
