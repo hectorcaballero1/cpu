@@ -17,7 +17,7 @@ module datapath(input clk, reset,
     localparam WIDTH = 32;
 
     // Fetch
-    wire [31:0] PCNextF, PCPlus4F;
+    wire [31:0] PCNextF, PCPlusNF;
     wire [1:0]  PCSrcE;
     wire [31:0] PCTargetE;
     wire [31:0] ALUResultE;
@@ -25,8 +25,17 @@ module datapath(input clk, reset,
     // Señales de hazard (stall / flush)
     wire StallF, StallD, FlushD, FlushE;
 
+    wire [31:0] InstrF32;
+    wire is_compressed;
+
+    decompressor decomp(
+        .instr_in(InstrF),
+        .instr32(InstrF32),
+        .is_compressed(is_compressed)
+    );
+
     mux3 #(WIDTH) pcmux(
-        .d0(PCPlus4F),
+        .d0(PCPlusNF),
         .d1(PCTargetE),
         .d2(ALUResultE),
         .s(PCSrcE),
@@ -41,19 +50,19 @@ module datapath(input clk, reset,
         .q(PCF)
     );
 
-    adder pcadd4(
+    adder pcaddN(
         .a(PCF),
-        .b(32'd4),
-        .y(PCPlus4F)
+        .b(is_compressed ? 32'd2 : 32'd4),
+        .y(PCPlusNF)
     );
 
 
-    // Registros Fetch/Decode 
-    wire [31:0] PCD, PCPlus4D, InstrD;
+    // Registros Fetch/Decode
+    wire [31:0] PCD, PCPlusND, InstrD;
 
     floprce #(32) r_ifid_pc(clk, reset, FlushD, ~StallD, PCF, PCD);
-    floprce #(32) r_ifid_pc4(clk, reset, FlushD, ~StallD, PCPlus4F, PCPlus4D);
-    floprce #(32) r_ifid_instr(clk, reset, FlushD, ~StallD, InstrF, InstrD);
+    floprce #(32) r_ifid_pcN(clk, reset, FlushD, ~StallD, PCPlusNF, PCPlusND);
+    floprce #(32) r_ifid_instr(clk, reset, FlushD, ~StallD, InstrF32, InstrD);
 
 
     // Instruction decode
@@ -90,7 +99,7 @@ module datapath(input clk, reset,
 
 
     // Registros Decode/Execute
-    wire [31:0] RD1E, RD2E, PCE, ImmExtE, PCPlus4E;
+    wire [31:0] RD1E, RD2E, PCE, ImmExtE, PCPlusNE;
     wire [4:0]  RdE, Rs1E, Rs2E;
     wire [2:0]  funct3E;
     wire [31:0] InstrE;
@@ -105,7 +114,7 @@ module datapath(input clk, reset,
     floprc #(32) r_idex_wdata(clk, reset, FlushE, WriteDataD, RD2E);
     floprc #(32) r_idex_pc(clk, reset, FlushE, PCD, PCE);
     floprc #(32) r_idex_imm(clk, reset, FlushE, ImmExtD, ImmExtE);
-    floprc #(32) r_idex_pc4(clk, reset, FlushE, PCPlus4D, PCPlus4E);
+    floprc #(32) r_idex_pcN(clk, reset, FlushE, PCPlusND, PCPlusNE);
     floprc #(5)  r_idex_rd(clk, reset, FlushE, InstrD[11:7], RdE);
     floprc #(5)  r_idex_rs1(clk, reset, FlushE, Rs1D, Rs1E);
     floprc #(5)  r_idex_rs2(clk, reset, FlushE, Rs2D, Rs2E);
@@ -202,7 +211,7 @@ module datapath(input clk, reset,
 
 
     // Registros Execute/Memory
-    wire [31:0] PCPlus4M;
+    wire [31:0] PCPlusNM;
     wire [4:0]  RdM;
     wire RegWriteM;
     wire [1:0]  ResultSrcM;
@@ -211,7 +220,7 @@ module datapath(input clk, reset,
 
     flopr #(32) r_exmem_alures(clk, reset, ALUResultE, ALUResultM);
     flopr #(32) r_exmem_wdata(clk, reset, WriteDataE, WriteDataM);
-    flopr #(32) r_exmem_pc4(clk, reset, PCPlus4E, PCPlus4M);
+    flopr #(32) r_exmem_pcN(clk, reset, PCPlusNE, PCPlusNM);
     flopr #(5)  r_exmem_rd(clk, reset, RdE, RdM);
 
     flopr #(1)  r_exmem_rwr(clk, reset, RegWriteE, RegWriteM);
@@ -222,19 +231,19 @@ module datapath(input clk, reset,
 
 
     // Memory
-    
+
     // MemWriteM, ALUResultM y WriteDataM son outputs, se conectan a Data Memory
     // El puerto ReadDataM ingresa como dato fresco desde el exterior (output de Data Memory)
 
     // Registros Memory/WriteBack
-    wire [31:0] ALUResultW, ReadDataW, PCPlus4W;
+    wire [31:0] ALUResultW, ReadDataW, PCPlusNW;
     wire [1:0]  ResultSrcW;
     wire [31:0] InstrW;
     wire [31:0] PCW;
 
     flopr #(32) r_memwb_alures(clk, reset, ALUResultM, ALUResultW);
     flopr #(32) r_memwb_rdata(clk, reset, ReadDataM, ReadDataW);
-    flopr #(32) r_memwb_pc4(clk, reset, PCPlus4M, PCPlus4W);
+    flopr #(32) r_memwb_pcN(clk, reset, PCPlusNM, PCPlusNW);
     flopr #(5)  r_memwb_rd(clk, reset, RdM, RdW);
 
     flopr #(1)  r_memwb_rwr(clk, reset, RegWriteM, RegWriteW);
@@ -244,11 +253,11 @@ module datapath(input clk, reset,
 
 
     // WriteBack
-    
+
     mux3 #(WIDTH) resultmux(
         .d0(ALUResultW),
         .d1(ReadDataW),
-        .d2(PCPlus4W),
+        .d2(PCPlusNW),
         .s(ResultSrcW),
         .y(ResultW)
     );
