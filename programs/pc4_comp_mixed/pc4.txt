@@ -1,0 +1,10 @@
+# Mezcla 16/32 bits con desalineacion forzada
+# Esperado: x8=5, x5=105, x6=110, x7=215
+c.li  x8, 5
+addi  x5, x0, 100
+c.add x5, x8
+add   x6, x5, x8
+add   x7, x5, x6
+c.mv  x8, x7
+end:
+c.j   end

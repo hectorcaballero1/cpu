@@ -1,0 +1,11 @@
+# Loads y stores comprimidos
+# Esperado: x10=30, x11=30
+c.li   x8, 30
+c.li   x9, 0
+c.sw   x8, 0(x9)
+c.lw   x10, 0(x9)
+c.li   x2, 16
+c.swsp x8, 0(x2)
+c.lwsp x11, 0(x2)
+loop:
+c.j    loop
