@@ -17,7 +17,7 @@ module datapath(input clk, reset,
     localparam WIDTH = 32;
 
     // Fetch
-    wire [31:0] PCNextF, PCPlusNF;
+    wire [31:0] PCNextF, PCPlusNF, PCIncF;
     wire [1:0]  PCSrcE;
     wire [31:0] PCTargetE;
     wire [31:0] ALUResultE;
@@ -50,9 +50,16 @@ module datapath(input clk, reset,
         .q(PCF)
     );
 
+    mux2 #(32) pcincmux(
+        .d0(32'd4),
+        .d1(32'd2),
+        .s(is_compressed),
+        .y(PCIncF)
+    );
+
     adder pcaddN(
         .a(PCF),
-        .b(is_compressed ? 32'd2 : 32'd4),
+        .b(PCIncF),
         .y(PCPlusNF)
     );
 
